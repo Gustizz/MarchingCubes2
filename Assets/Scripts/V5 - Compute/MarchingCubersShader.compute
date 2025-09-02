@@ -1,0 +1,200 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#include "Includes/MarchTable.compute"
+
+struct Triangle {
+    float3 vertexC;
+    float3 vertexB;
+    float3 vertexA;
+};
+
+AppendStructuredBuffer<Triangle> triangles;
+RWStructuredBuffer<float4> points;
+
+float surfaceLevel;
+int numOfPointsPerAxis;
+
+float3 InterpolatePoints(float4 v1, float4 v2) {
+    float t = (surfaceLevel - v1.w) / (v2.w - v1.w);
+    return v1.xyz + t * (v2.xyz-v1.xyz);
+}
+
+int IndexFromCoord(uint x, uint y, uint z)
+{
+    return z * numOfPointsPerAxis * numOfPointsPerAxis + y * numOfPointsPerAxis + x;
+}
+
+float3 GetInterpolatedVertex(int currPoint, float4 vertices[8])
+{
+    if(currPoint == 0) return InterpolatePoints( vertices[1], vertices[2]);
+    if (currPoint == 1)return  InterpolatePoints(vertices[1], vertices[2]);
+    if (currPoint == 2)return InterpolatePoints(vertices[2], vertices[3]);
+    if (currPoint == 3)return InterpolatePoints(vertices[3], vertices[0]);
+    if (currPoint == 4)return InterpolatePoints(vertices[4], vertices[5]);
+    if (currPoint == 5)return InterpolatePoints(vertices[5], vertices[6]);
+    if (currPoint == 6)return InterpolatePoints(vertices[6], vertices[7]);
+    if (currPoint == 7)return InterpolatePoints(vertices[7], vertices[4]);
+    if (currPoint == 8)return InterpolatePoints(vertices[0], vertices[4]);
+    if (currPoint == 9)return InterpolatePoints(vertices[1], vertices[5]);
+    if (currPoint == 10)return InterpolatePoints(vertices[2], vertices[6]);
+    if (currPoint == 11)return InterpolatePoints(vertices[3], vertices[7]);
+    else return vertices[0];
+}
+
+static const int cornerIndexAFromEdge[12] = {
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    0,
+    1,
+    2,
+    3
+};
+
+static const int cornerIndexBFromEdge[12] = {
+    1,
+    2,
+    3,
+    0,
+    5,
+    6,
+    7,
+    4,
+    4,
+    5,
+    6,
+    7
+};
+
+
+[numthreads(8,8,8)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+
+    //Each id is an index of the array points (float4(pos, noise))
+    //Each iteration of this shader will process a singular point
+    //From one point, 8 total vertices will be fetched from the points array and used to create a cube
+    //Marching cubes is then applied to calculate which vertices will be needed for the mesh
+    //The result will be converted into a list of triangles that need to be connected
+    //These triangles are appended to a triangle array in a .cs script
+    //Triangle array is iterated through to generate the mesh
+
+
+    //Remove the edge points
+    if (id.x >= numOfPointsPerAxis-1 || id.y >= numOfPointsPerAxis-1 || id.z >= numOfPointsPerAxis-1) {
+        return;
+    }
+
+    //Get the vertices of the current cube
+    float4 vertices[8] = {
+        points[IndexFromCoord(id.x, id.y, id.z)],
+        points[IndexFromCoord(id.x + 1, id.y, id.z)],
+        points[IndexFromCoord(id.x + 1, id.y, id.z + 1)],
+        points[IndexFromCoord(id.x, id.y, id.z + 1)],
+        points[IndexFromCoord(id.x, id.y + 1, id.z)],
+        points[IndexFromCoord(id.x + 1, id.y + 1, id.z)],
+        points[IndexFromCoord(id.x + 1, id.y + 1, id.z + 1)],
+        points[IndexFromCoord(id.x, id.y + 1, id.z + 1)]
+    };
+
+    /*//Get the index of the cube state
+    int cubeIndex = 0;
+    for(int i = 0; i < 8;i++)
+    {
+        if(vertices[i].w < surfaceLevel)
+        {
+            cubeIndex += 1 << i;
+        }
+    }*/
+
+    int cubeIndex = 0;
+    if (vertices[0].w > surfaceLevel) cubeIndex |= 1;
+    if (vertices[1].w > surfaceLevel) cubeIndex |= 2;
+    if (vertices[2].w > surfaceLevel) cubeIndex |= 4;
+    if (vertices[3].w > surfaceLevel) cubeIndex |= 8;
+    if (vertices[4].w > surfaceLevel) cubeIndex |= 16;
+    if (vertices[5].w > surfaceLevel) cubeIndex |= 32;
+    if (vertices[6].w > surfaceLevel) cubeIndex |= 64;
+    if (vertices[7].w > surfaceLevel) cubeIndex |= 128;
+
+
+    
+
+
+    
+    //Create triangles for the current cube state
+    //for (int i = 0; i < 16; i +=3) 
+    for (int i = 0; triangulation[cubeIndex][i] != -1; i +=3) 
+    {
+      //  if(triangulation[cubeIndex][i] == -1) return;
+        
+
+        //Lague version
+        // of the cube that need to be joined to form the triangle.
+        int a0 = cornerIndexAFromEdge[triangulation[cubeIndex][i]];
+        int b0 = cornerIndexBFromEdge[triangulation[cubeIndex][i]];
+
+        int a1 = cornerIndexAFromEdge[triangulation[cubeIndex][i+1]];
+        int b1 = cornerIndexBFromEdge[triangulation[cubeIndex][i+1]];
+
+        int a2 = cornerIndexAFromEdge[triangulation[cubeIndex][i+2]];
+        int b2 = cornerIndexBFromEdge[triangulation[cubeIndex][i+2]];
+
+        Triangle tri;
+        tri.vertexA = InterpolatePoints(vertices[a0], vertices[b0]);
+        tri.vertexB = InterpolatePoints(vertices[a1], vertices[b1]);
+        tri.vertexC = InterpolatePoints(vertices[a2], vertices[b2]);
+        triangles.Append(tri);
+
+        //My version my version kinda dont work like a lil bit
+       /* Triangle newTriangle;
+
+       newTriangle.vertexA = GetInterpolatedVertex( triangulation[cubeIndex][i], vertices) ;
+        newTriangle.vertexB = GetInterpolatedVertex( triangulation[cubeIndex][i + 1], vertices); 
+        newTriangle.vertexC = GetInterpolatedVertex( triangulation[cubeIndex][i + 2], vertices);
+
+        //newTriangle.vertexA = (0,0,0);
+        //newTriangle.vertexB = (1,1,1);
+        //newTriangle.vertexC = (2,2,2);
+        triangles.Append(newTriangle);*/
+
+       /* int currPoint = triangulation[cubeIndex][i];
+        if(currPoint == -1) break;
+
+        
+        if(currPoint == 0) verticesToUse[i] = InterpolatePoints( vertices[1], vertices[2]);
+        if (currPoint == 1) verticesToUse[i] = InterpolatePoints(vertices[1], vertices[2]);
+        if (currPoint == 2)verticesToUse[i] = InterpolatePoints(vertices[2], vertices[3]);
+        if (currPoint == 3)verticesToUse[i] = InterpolatePoints(vertices[3], vertices[0]);
+        if (currPoint == 4)verticesToUse[i] = InterpolatePoints(vertices[4], vertices[5]);
+        if (currPoint == 5)verticesToUse[i] = InterpolatePoints(vertices[5], vertices[6]);
+        if (currPoint == 6)verticesToUse[i] = InterpolatePoints(vertices[6], vertices[7]);
+        if (currPoint == 7)verticesToUse[i] = InterpolatePoints(vertices[7], vertices[4]);
+        if (currPoint == 8)verticesToUse[i] = InterpolatePoints(vertices[0], vertices[4]);
+        if (currPoint == 9)verticesToUse[i] = InterpolatePoints(vertices[1], vertices[5]);
+        if (currPoint == 10) verticesToUse[i] = InterpolatePoints(vertices[2], vertices[6]);
+        if (currPoint == 11) verticesToUse[i] = InterpolatePoints(vertices[3], vertices[7]);*/
+
+    }
+
+  /*  for(int i = 0; i < count; i+=3)
+    {
+        Triangle newTriangle;
+        newTriangle.vertexA = verticesToUse[i];
+        newTriangle.vertexB = verticesToUse[i + 1]; 
+        newTriangle.vertexC = verticesToUse[i + 2];
+
+        triangles.Append(newTriangle);
+
+    }*/
+
+    
+
+    
+}
+

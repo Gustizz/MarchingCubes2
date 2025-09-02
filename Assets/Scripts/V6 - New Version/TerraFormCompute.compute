@@ -1,0 +1,63 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+int numOfPointsPerAxis;
+
+RWStructuredBuffer<float4> points;
+float3 brushPos;
+float brushSize;
+float brushWeight;
+
+float3 centre;
+float spacing;
+float chunkSize;
+
+float GetDistance(float3 v1, float3 v2)
+{
+    float3 diff = v1 - v2;
+
+    float distX = (v2.x - v1.x) * (v2.x - v1.x);
+    float distY = (v2.y - v1.y) * (v2.y - v1.y);
+    float distZ = (v2.z - v1.z) * (v2.z - v1.z);
+
+    float distSq = distX + distY + distZ;
+    return sqrt(distSq);
+}
+
+[numthreads(8,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+
+    
+
+    int3 offset = id - brushPos;
+    int sqrDst = dot(offset, offset);
+    
+    
+    float noiseVal = points[id.x].w;
+    
+    //float dist = GetDistance(points[id.x], brushPos);
+    float dist = distance(points[id.x], brushPos);
+    if(dist < brushSize)
+    {
+        noiseVal += brushWeight;
+
+    }
+
+
+    if(noiseVal < 0)
+    {
+        noiseVal = 0;
+    }
+    if(noiseVal > 1)
+    {
+        noiseVal = 1;
+    }
+    
+    points[id.x] = float4(points[id.x].x, points[id.x].y , points[id.x].z,  noiseVal);
+
+
+}
