@@ -66,6 +66,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     //float finalVal = (-pos.y + floorOffset) + (noise * noiseWeight) + (pos.y % 2);
     // Circle: float finalVal = radius - length(pos) +(noise * noiseWeight);
     //float finalVal = -(pos.y + floorOffset) + noise * noiseWeight + (pos.y%params.x) * params.y;
+    
     float finalVal = radius - length(pos) +(noise * noiseWeight);
 
     if (pos.y < hardFloor) {

@@ -117,7 +117,7 @@ Material:
     - _Power: 25
     - _QueueControl: 0
     - _QueueOffset: 0
-    - _Radius: 499.93
+    - _Radius: 338.9
     - _ReceiveShadows: 1
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
