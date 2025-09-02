@@ -1,10 +1,20 @@
 # Procedural Terrain Generation with Marching Cubes and Compute Shaders
 
----
+
 
 ## **Introduction**
 
 This project is a procedural terrain generator that utilizes the **marching cubes** algorithm to create dynamic and detailed 3D terrain. The core of this system is implemented using **compute shaders**, which allows for highly parallel and efficient computation on the GPU, significantly speeding up the terrain generation process.
+
+<br>
+
+**Real-Time Terraforming**
+
+This GIF shows the dynamic, real-time nature of the terrain generation system.
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/3a828879-5148-4558-85ee-3fdf86d8ce69" alt="GIF demonstrating real-time terrain generation" />
+</div>
 
 <br>
 
@@ -33,13 +43,5 @@ Here are some examples of the generated terrain, showcasing the variety achievab
 
 <br>
 
-**Real-Time Terraforming**
 
-This GIF shows the dynamic, real-time nature of the terrain generation system.
-
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/3a828879-5148-4558-85ee-3fdf86d8ce69" alt="GIF demonstrating real-time terrain generation" />
-</div>
-
-<br>
 
